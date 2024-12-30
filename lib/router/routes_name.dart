@@ -4,6 +4,7 @@ class RoutesName{
   static const String registerScreen = 'register_screen';
   static const String navigationScreen = 'navigation_screen';
   static const String searchScreen = 'search_screen';
+  static const String userSearchScreen = 'user_search_profile';
   static const String chatList = 'chat_list';
   static const String chatScreen = 'chat_screen';
   static const String notificationScreen = 'notification_page';

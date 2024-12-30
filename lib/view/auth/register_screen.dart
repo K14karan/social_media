@@ -1,7 +1,11 @@
+import 'dart:developer';
+
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:social_media/provider/user_register_provider.dart';
+import 'package:social_media/provider/auth_provider.dart';
 import 'package:social_media/resources/resources.dart';
 import 'package:social_media/router/routes_name.dart';
 
@@ -14,15 +18,51 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _confirmPasswordController =
-  TextEditingController();
-  late RegisterController registerController;
+      TextEditingController();
+  bool isValidEmail(String email) {
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    return emailRegex.hasMatch(email);
+  }
 
+  void _handleRegister(AuthProvider authProvider) async {
+    if (_formKey.currentState!.validate()) {
+      final name = _nameController.text.trim();
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      final phone = _phoneController.text.trim();
+      final bio = _bioController.text.trim();
+      final dob = _dobController.text.trim();
+      final gender = _genderController.text.trim();
+      final profilePic = "";
+      final  backgroundPic="";
+
+      final user = await authProvider.registerUser(
+          name, email, password, phone, bio, dob, gender,profilePic,backgroundPic);
+
+      if (user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration successful!')),
+        );
+        GoRouter.of(context).pushNamed(RoutesName.loginScreen);
+        // Navigate to login screen or home screen
+      } else if (authProvider.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authProvider.errorMessage!)),
+        );
+      }
+    }
+  }
+
+  late AuthProvider authProvider;
   @override
   void initState() {
     super.initState();
@@ -30,15 +70,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   loadData() {
-    registerController =
-        Provider.of<RegisterController>(context, listen: false);
+    authProvider = Provider.of<AuthProvider>(context, listen: false);
   }
 
   final _formKey = GlobalKey<FormState>();
 
   @override
   Widget build(BuildContext context) {
-    registerController = Provider.of<RegisterController>(context);
+    authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
       body: Container(
@@ -70,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Please fill the details to register',
                   style: Resources.styles.kTextStyle16(Colors.white70),
                 ),
-                SizedBox(height: MediaQuery.of(context).size.height * .05),
+                SizedBox(height: MediaQuery.of(context).size.height * .03),
 
                 // Name TextField
                 _buildTextFormField(
@@ -83,6 +122,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       return null;
                     }),
+                SizedBox(height: MediaQuery.of(context).size.height * .03),
+                _buildTextFormField(
+                  controller: _phoneController,
+                  labelText: 'Phone Number',
+                  icon: Icons.phone,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  validator: (value) {
+                    if (value!.isEmpty) {
+                      return 'Enter your phone number';
+                    } else if (value.length != 10) {
+                      return 'Phone number should be 10 digits';
+                    }
+                    return null;
+                  },
+                ),
                 SizedBox(height: MediaQuery.of(context).size.height * .03),
 
                 // Date of Birth TextField
@@ -113,18 +171,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // Email TextField with validation
                 _buildTextFormField(
-                    controller: _emailController,
-                    labelText: 'Email',
-                    icon: Icons.email,
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Enter an email address';
-                      } else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-                          .hasMatch(value)) {
-                        return 'Enter a valid email address';
-                      }
-                      return null;
-                    }),
+                  controller: _emailController,
+                  labelText: 'Email',
+                  icon: Icons.email,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Password is required';
+                    } else if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
                 SizedBox(height: MediaQuery.of(context).size.height * .03),
 
                 // Password TextField with validation
@@ -177,36 +235,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 45,
-                  child: registerController.isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        registerController.register(
-                          _nameController.text,
-                          _emailController.text,
-                          _passwordController.text,
-                          _dobController.text,
-                          _genderController.text,
-                          _bioController.text,
-                        );
-                      }
-                    },
+                  child: ElevatedButton(
+                    onPressed: authProvider.isLoading
+                        ? null
+                        : () => _handleRegister(authProvider),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: Resources.colors.themeColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
-                      shadowColor: Colors.black45,
-                      elevation: 5,
                     ),
-                    child: Text(
-                      'Register',
-                      style: Resources.styles
-                          .kTextStyle16B(Resources.colors.themeColor),
-                    ),
+                    child: authProvider.isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            'Register',
+                            style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
                   ),
                 ),
+
                 SizedBox(height: MediaQuery.of(context).size.height * .01),
 
                 // Already have an account? Login
@@ -242,12 +289,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String labelText,
     required IconData icon,
     bool obscureText = false,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType? keyboardType,
     required String? Function(String?) validator,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       validator: validator,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: labelText,
         prefixIcon: Icon(icon, color: Colors.white),

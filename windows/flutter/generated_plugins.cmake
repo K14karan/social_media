@@ -3,10 +3,16 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  app_links
+  audioplayers_windows
+  cloud_firestore
   emoji_picker_flutter
   file_selector_windows
-  url_launcher_windows
+  firebase_auth
+  firebase_core
+  firebase_storage
+  permission_handler_windows
+  zego_express_engine
+  zego_zim
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

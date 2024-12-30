@@ -1,3 +1,6 @@
+import 'dart:developer';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:social_media/provider/user_provider.dart';
@@ -14,16 +17,50 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController searchController = TextEditingController();
 
-  @override
-  void dispose() {
-    // Dispose of the controller when the widget is removed from the widget tree
-    searchController.dispose();
-    super.dispose();
+  // Method to follow the user
+  Future<void> followUser(String userId) async {
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUserId != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('followers')
+            .doc(currentUserId)
+            .set({
+          'followedAt': Timestamp.now(),
+        });
+        log("Followed user $userId");
+        setState(() {});
+      }
+    } catch (e) {
+      log("Error following user: $e");
+    }
+  }
+
+  // Method to unfollow the user
+  Future<void> unfollowUser(String userId) async {
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUserId != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('followers')
+            .doc(currentUserId)
+            .delete();
+        log("Unfollowed user $userId");
+        setState(() {}); // Trigger a rebuild to refresh the button
+      }
+    } catch (e) {
+      log("Error unfollowing user: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
+    final searchProvider = Provider.of<UserProvider>(context);
+    log("user: ${searchProvider.searchResults}");
 
     return Scaffold(
       body: SafeArea(
@@ -33,94 +70,116 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.all(8.0),
               child: TextField(
                 controller: searchController,
-                cursorColor: Resources.colors.themeColor,
-
+                cursorColor: Colors.blue,
                 decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 5,horizontal: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                   labelText: 'Search',
-                  labelStyle: Resources.styles.kTextStyle14B(Colors.grey),
                   hintText: 'Type a name...',
-                  hintStyle: Resources.styles.kTextStyle14B(Colors.grey),
-                  filled: true,
-                  fillColor: Resources.colors.whiteColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(5.0),
-                    borderSide: BorderSide(
-                      color: Resources.colors.themeColor,
-                      width: .5,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5.0),
-                    borderSide: BorderSide(
-                      color: Resources.colors.themeColor,
-                      width: .5,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5.0),
-                    borderSide: BorderSide(
-                      color: Resources.colors.themeColor,
-                      width: .5,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5.0),
-                    borderSide: BorderSide(
-                      color: Resources.colors.themeColor,
-                      width: .5,
-                    ),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () {
-                      userProvider.searchUsers(searchController.text);
-                    },
+                    borderSide:
+                        const BorderSide(color: Colors.blue, width: 0.5),
                   ),
                 ),
                 onChanged: (value) {
-                  userProvider.searchUsers(value);
+                  if (value.trim().length > 2) {
+                    searchProvider.searchUsers(value.trim());
+                  } else {
+                    searchProvider.clearResults();
+                  }
                 },
               ),
             ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: userProvider.filteredUsers.length,
-                itemBuilder: (context, index) {
-                  final user = userProvider.filteredUsers[index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      radius: 22,
-                      backgroundImage: NetworkImage(user.profilePicture),
-                    ),
-                    title: Text(
-                      user.name,
-                      style: Resources.styles.kTextStyle14B(Resources.colors.greyColor),
-                    ),
-                    trailing: TextButton(
-                      onPressed: () {
-                        userProvider.followUser(user);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Followed ${user.name}')),
-                        );
-                      },
-                      child: Text(
-                        'Follow',
-                        style: Resources.styles.kTextStyle14B(Resources.colors.themeColor),
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => UserProfilePage(user: user),
+            if (searchProvider.isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (searchProvider.errorMessage != null)
+              Center(
+                child: Text(
+                  searchProvider.errorMessage!,
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                ),
+              )
+            else if (searchProvider.searchResults.isEmpty)
+              const Center(
+                child: Text(
+                  "No users found",
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  itemCount: searchProvider.searchResults.length,
+                  itemBuilder: (context, index) {
+                    final user = searchProvider.searchResults[index];
+                    log("User data: $user");
+                    log("UserId: ${user["id"]}");
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 22,
+                        backgroundImage: NetworkImage(
+                          user['profilePic'] ?? '',
                         ),
-                      );
-                    },
-                  );
-                },
+                      ),
+                      title: Text(user['name'] ?? ''),
+                      trailing: FutureBuilder<DocumentSnapshot>(
+                        future: FirebaseFirestore.instance
+                            .collection("users")
+                            .doc(user['id'])
+                            .collection("followers")
+                            .doc(FirebaseAuth.instance.currentUser?.uid)
+                            .get(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator();
+                          }
+                          if (snapshot.hasData && snapshot.data!.exists) {
+                            return TextButton(
+                              onPressed: () {
+                                unfollowUser(user['id']);
+                              },
+                              child: Text(
+                                'Unfollow',
+                                style: Resources.styles
+                                    .kTextStyle14B(Resources.colors.themeColor),
+                              ),
+                            );
+                          } else {
+                            return TextButton(
+                              onPressed: () {
+                                followUser(user['id']);
+                              },
+                              child: Text(
+                                'Follow',
+                                style: Resources.styles
+                                    .kTextStyle14B(Resources.colors.themeColor),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      onTap: () {
+                        final userId = FirebaseAuth.instance.currentUser?.uid;
+                        log("userId:$userId");
+                        if (userId != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  UserProfilePage(userId: user["id"]),
+                            ),
+                          );
+                        } else {
+                          log("User ID is null");
+                        }
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
           ],
         ),
       ),

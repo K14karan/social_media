@@ -1,5 +1,4 @@
-
-import 'package:flutter/cupertino.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +6,13 @@ import 'package:provider/provider.dart';
 import 'package:social_media/provider/add_story_provider.dart';
 import 'package:social_media/resources/resources.dart';
 import 'package:social_media/router/routes_name.dart';
+import 'package:social_media/services/api_services.dart';
+import 'package:social_media/view/screens/chat/chat_list.dart';
 import 'package:social_media/view/screens/home_screen/story_view.dart';
 import 'package:video_player/video_player.dart';
+import 'package:firebase_auth_platform_interface/src/auth_provider.dart';
+import 'package:social_media/provider/auth_provider.dart';
+import 'package:zego_zimkit/zego_zimkit.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -78,11 +82,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return _videoControllers[index]!;
   }
 
-  late StoryProvider storyProvider;
-
   @override
   Widget build(BuildContext context) {
     final storyProvider = Provider.of<StoryProvider>(context, listen: false);
+    //final authProvider=Provider.of<AuthProvider>(context,listen:false );
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -107,6 +110,26 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
+            icon: Icon(
+              Icons.logout,
+              color: Resources.colors.themeColor,
+            ),
+            onPressed: () async {
+              await FirebaseServices().logoutUser();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('You have logged out successfully'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+
+              // Navigate to the login screen after a short delay
+              Future.delayed(const Duration(seconds: 1), () {
+                GoRouter.of(context).pushNamed(RoutesName.loginScreen);
+              });
+            },
+          ),
+          IconButton(
               icon: Icon(
                 Icons.search,
                 color: Resources.colors.themeColor,
@@ -126,13 +149,59 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }),
           IconButton(
-              icon: Icon(
-                Icons.chat,
-                color: Resources.colors.themeColor,
-              ),
-              onPressed: () {
-                GoRouter.of(context).pushNamed(RoutesName.chatList);
-              }),
+            icon: Icon(
+              Icons.chat,
+              color: Resources.colors.themeColor,
+            ),
+            onPressed: () {
+              // Display the alert dialog for user ID and username
+              showDialog(
+                context: context,
+                builder: (context) {
+                  TextEditingController idController = TextEditingController();
+                  TextEditingController nameController =
+                      TextEditingController();
+
+                  return AlertDialog(
+                    title: Text("Enter User ID and Name"),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: idController,
+                          decoration: const InputDecoration(labelText: 'User ID'),
+                        ),
+                        TextField(
+                          controller: nameController,
+                          decoration: const InputDecoration(labelText: 'User Name'),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () async {
+                          String userId = idController.text.trim();
+                          String userName = nameController.text.trim();
+
+                        await  ZIMKit()
+                              .connectUser(id: userId, name: userName);
+
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const ChatList(),
+                              ),
+                            );
+
+
+                        },
+                        child: Text('OK'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          )
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
@@ -143,11 +212,11 @@ class _HomeScreenState extends State<HomeScreen> {
             bottom: 10,
             right: 10,
             child: FloatingActionButton(
-              onPressed: (){
+              onPressed: () {
                 GoRouter.of(context).pushNamed(RoutesName.addPostScreen);
               },
               backgroundColor: Resources.colors.whiteColor.withOpacity(.6),
-              child:  Icon(Icons.add,color:  Resources.colors.themeColor),
+              child: Icon(Icons.add, color: Resources.colors.themeColor),
             ),
           ),
         ],
@@ -164,52 +233,52 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: Resources.styles.kTextStyle18B(Colors.black),
               ),
             ),
-      SizedBox(
-        height: MediaQuery.of(context).size.height * .1,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: storyProvider.friendStories.length +1,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              // User story (Add Story or display uploaded story)
-              return Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: GestureDetector(
-                  onTap: () => storyProvider.addStory(context),
-                  child: CircleAvatar(
-                    radius: 35,
-                    backgroundColor: Colors.grey[300],
-                    backgroundImage: storyProvider.userStory != null
-                        ? FileImage(storyProvider.userStory!) as ImageProvider
-                        : null,
-                    child: storyProvider.userStory == null
-                        ?  Icon(
-                      Icons.add,
-                      color:Resources.colors.themeColor,
-                      size: 28,
-                    )
-                        : null,
-                  ),
-                ),
-              );
-            } else {
-              // Friend's stories
-              final friendStory = storyProvider.friendStories[index - 1];
-              return Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: GestureDetector(
-                  onTap: () => _showStoryDialog(context, friendStory),
-                  child: CircleAvatar(
-                    radius: 35,
-                    backgroundImage: NetworkImage(friendStory),
-                  ),
-                ),
-              );
-            }
-          },
-        ),
-      ),
-
+            SizedBox(
+              height: MediaQuery.of(context).size.height * .1,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: storyProvider.friendStories.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    // User story (Add Story or display uploaded story)
+                    return Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: GestureDetector(
+                        onTap: () => storyProvider.addStory(context),
+                        child: CircleAvatar(
+                          radius: 35,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: storyProvider.userStory != null
+                              ? FileImage(storyProvider.userStory!)
+                                  as ImageProvider
+                              : null,
+                          child: storyProvider.userStory == null
+                              ? Icon(
+                                  Icons.add,
+                                  color: Resources.colors.themeColor,
+                                  size: 28,
+                                )
+                              : null,
+                        ),
+                      ),
+                    );
+                  } else {
+                    // Friend's stories
+                    final friendStory = storyProvider.friendStories[index - 1];
+                    return Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: GestureDetector(
+                        onTap: () => _showStoryDialog(context, friendStory),
+                        child: CircleAvatar(
+                          radius: 35,
+                          backgroundImage: NetworkImage(friendStory),
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
 
             const Divider(),
             // Posts Feed Section
@@ -466,11 +535,6 @@ class _HomeScreenState extends State<HomeScreen> {
           onClose: () => Navigator.pop(context),
         );
       },
-
     );
-
   }
-
-
 }
-

@@ -1,21 +1,23 @@
 import 'dart:developer';
-
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:social_media/model/add_post_model.dart';
+import 'package:social_media/provider/add_post_controller.dart';
+import 'package:social_media/provider/auth_provider.dart';
 import 'package:social_media/resources/resources.dart';
 import 'package:social_media/router/routes_name.dart';
+import 'package:social_media/view/screens/profile/following_list.dart';
 import 'package:video_player/video_player.dart';
 
-class MediaItem {
-  final String url;
-  final bool isVideo;
-
-  MediaItem({required this.url, required this.isVideo});
-}
+import 'followers_list.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+final String userId;
+  const ProfileScreen({super.key, required this.userId,});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -23,11 +25,39 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   List<VideoPlayerController?> _videoControllers = [];
+  late AddPostController addPostController;
+
+  void _initializeVideoControllers() {
+    log('Initializing video controllers with posts: ${addPostController.posts.length}');
+
+    _videoControllers = addPostController.posts.map((PostModel item) {
+      if (item.mediaType == "video") {
+        log('Initializing video controller for: ${item.mediaUrl}');
+        return VideoPlayerController.network(item.mediaUrl)
+          ..initialize().then((_) {
+            setState(() {});
+          });
+      } else {
+        return null;
+      }
+    }).toList();
+  }
+
+  late AuthProvider authProvider;
+  loadData() {
+    authProvider = Provider.of<AuthProvider>(context, listen: false);
+    authProvider.fetchUserDetails();
+    addPostController = Provider.of<AddPostController>(context, listen: false);
+    addPostController.fetchPosts();
+    _initializeVideoControllers();
+  }
 
   @override
   void initState() {
     super.initState();
-    _initializeVideoControllers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadData();
+    });
   }
 
   @override
@@ -39,227 +69,349 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _initializeVideoControllers() {
-    // Sample gallery items (images and videos)
-    List<MediaItem> galleryItems = [
-      MediaItem(
-          url:
-              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTS6xn1hVT8NIz70qdzI-1bYTFecpqNOhNCkQ&s',
-          isVideo: false),
-      MediaItem(
-          url:
-              'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-          isVideo: true),
-      MediaItem(
-          url:
-              'https://wallpapers.com/images/hd/russian-girl-actress-ekaterina-kuznetsova-u2itufn94o8sfzvl.jpg',
-          isVideo: false),
-      MediaItem(
-          url:
-              'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-          isVideo: true),
-      MediaItem(
-          url:
-              'https://img.freepik.com/premium-photo/beautiful-russian-girl-city-park_333900-3225.jpg?w=360',
-          isVideo: false),
-    ];
-
-    // Initialize video controllers for video items
-    _videoControllers = galleryItems.map((item) {
-      if (item.isVideo) {
-        var controller = VideoPlayerController.network(item.url);
-        controller.initialize();
-        return controller;
-      } else {
-        return null;
-      }
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
+    authProvider = Provider.of<AuthProvider>(
+      context,
+    );
+    addPostController = Provider.of<AddPostController>(
+      context,
+    );
+
+    log("dataaa:${addPostController.posts}");
+    log('Posts: ${addPostController.posts.length}, VideoControllers: ${_videoControllers.length}');
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(
-          "Nikol Kidman",
-          style: Resources.styles.kTextStyle16B(Resources.colors.blackColor),
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      height: MediaQuery.of(context).size.height * .2,
-                      decoration: const BoxDecoration(
-                        image: DecorationImage(
-                          image: NetworkImage(
-                              "https://t4.ftcdn.net/jpg/05/49/86/39/360_F_549863991_6yPKI08MG7JiZX83tMHlhDtd6XLFAMce.jpg"),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      right: 15,
-                      child: Icon(
-                        Icons.edit,
-                        color: Resources.colors.whiteColor,
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -35,
-                      left: MediaQuery.of(context).size.width * 0.03,
-                      child: const CircleAvatar(
-                        radius: 40,
-                        backgroundImage: NetworkImage(
-                            "https://img.freepik.com/premium-photo/beautiful-russian-girl-city-park_333900-3225.jpg?w=360"),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -45,
-                      left: MediaQuery.of(context).size.width * 0.25,
-                      child: SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.78,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                          ),
-                          child: Text(
-                            "I'm a software Engineer at the Tata Consultancy Services.",
-                            style: Resources.styles.kTextStyle14(Colors.black),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: MediaQuery.of(context).size.height * .08),
-                Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              "20",
-                              style: Resources.styles
-                                  .kTextStyle14B(Resources.colors.greyColor),
-                            ),
-                            Text(
-                              "Followers",
-                              style: Resources.styles
-                                  .kTextStyle14B(Resources.colors.blackColor),
-                            ),
-                          ],
-                        ),
-                        SizedBox(
-                          width: MediaQuery.of(context).size.width * .05,
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              "20",
-                              style: Resources.styles
-                                  .kTextStyle14B(Resources.colors.greyColor),
-                            ),
-                            Text(
-                              "Following",
-                              style: Resources.styles
-                                  .kTextStyle14B(Resources.colors.blackColor),
-                            ),
-                          ],
-                        ),
-                        SizedBox(
-                          width: MediaQuery.of(context).size.width * .05,
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            GoRouter.of(context)
-                                .pushNamed(RoutesName.editProfileScreen);
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            height: MediaQuery.of(context).size.height * .04,
-                            width: MediaQuery.of(context).size.width * .25,
-                            decoration: BoxDecoration(
-                                color: Resources.colors.themeColor,
-                                borderRadius: BorderRadius.circular(10)),
-                            child: Text(
-                              "Edit Profile",
-                              style: Resources.styles
-                                  .kTextStyle12B(Resources.colors.whiteColor),
-                            ),
-                          ),
-                        )
-                      ],
-                    )),
-                const SizedBox(height: 5),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8.0),
-                  child: Divider(
-                    color: Resources.colors.greyColor,
-                  ),
-                ),
-                SizedBox(height: MediaQuery.of(context).size.height * .004),
-                _buildGallery(),
-              ],
+            Text(
+              "${authProvider.userDetails?["name"]}",
+              style:
+                  Resources.styles.kTextStyle16B(Resources.colors.blackColor),
+            ),
+            Text(
+              "${authProvider.userDetails?["phone"]}",
+              style: Resources.styles.kTextStyle14(Resources.colors.blackColor),
             ),
           ],
         ),
       ),
+      body: authProvider.isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                color: Resources.colors.themeColor,
+              ),
+            )
+          : Consumer<AuthProvider>(builder: (context, provider, child) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Column(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            provider.isLoading
+                                ? Center(
+                                    child: CircularProgressIndicator(
+                                    color: Resources.colors.themeColor,
+                                  ))
+                                : Container(
+                                    height: MediaQuery.of(context).size.height *
+                                        .22,
+                                    decoration: BoxDecoration(
+                                      image: provider.image != null
+                                          ? DecorationImage(
+                                              image: FileImage(
+                                                  File(provider.image!.path)),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : provider.userDetails?[
+                                                      "backgroundPic"] !=
+                                                  null
+                                              ? DecorationImage(
+                                                  image: NetworkImage(
+                                                    provider.userDetails![
+                                                        "backgroundPic"],
+                                                  ),
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : DecorationImage(
+                                                  image: NetworkImage(Resources
+                                                      .images.noImages),
+                                                  fit: BoxFit.cover,
+                                                ),
+                                    ),
+                                  ),
+                            Positioned(
+                              top: 10,
+                              right: 15,
+                              child: InkWell(
+                                onTap: () => provider.pickImage(
+                                    context, 'backgroundPic'),
+                                child: Icon(Icons.edit,
+                                    color: Resources.colors.themeColor),
+                              ),
+                            ),
+                            // Profile Image
+                            Positioned(
+                              bottom: -35,
+                              left: MediaQuery.of(context).size.width * 0.03,
+                              child: CircleAvatar(
+                                radius: 40,
+                                backgroundColor: Colors.grey,
+                                backgroundImage: provider.profileImage != null
+                                    ? FileImage(
+                                        File(provider.profileImage!.path))
+                                    : provider.userDetails?["profilePic"] !=
+                                            null
+                                        ? NetworkImage(
+                                            provider.userDetails!["profilePic"])
+                                        : NetworkImage(
+                                                Resources.images.noImages)
+                                            as ImageProvider,
+                              ),
+                            ),
+                            Positioned(
+                              left: MediaQuery.of(context).size.width * 0.15,
+                              bottom: -30,
+                              child: GestureDetector(
+                                onTap: () {
+                                  print("Tapped on profile image edit.");
+                                  provider.pickImage(context, 'profilePic');
+                                },
+                                child: Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.transparent,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.transparent,
+                                        blurRadius: 5,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.camera_alt,
+                                    size: 24,
+                                    color: Resources.colors.themeColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: -35,
+                              left: MediaQuery.of(context).size.width * 0.25,
+                              child: SizedBox(
+                                width: MediaQuery.of(context).size.width * 0.78,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                  ),
+                                  child: Text(
+                                    "${provider.userDetails?["bio"]}",
+                                    style: Resources.styles
+                                        .kTextStyle14(Colors.black),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(
+                            height: MediaQuery.of(context).size.height * .08),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "${provider.userDetails?["dob"]}",
+                                    style: Resources.styles
+                                        .kTextStyle14(Colors.black),
+                                  ),
+                                  Text(
+                                    "dob",
+                                    style: Resources.styles
+                                        .kTextStyle14B(Colors.black),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "${provider.userDetails?["gender"]}",
+                                    style: Resources.styles
+                                        .kTextStyle14(Colors.black),
+                                  ),
+                                  Text(
+                                    "Gender",
+                                    style: Resources.styles
+                                        .kTextStyle14B(Colors.black),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "${provider.userDetails?["email"]}",
+                                    style: Resources.styles
+                                        .kTextStyle14(Colors.black),
+                                  ),
+                                  Text(
+                                    "Email",
+                                    style: Resources.styles
+                                        .kTextStyle14B(Colors.black),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 15),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap:(){
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => FollowersListScreen(userId: widget.userId),
+                                      ),
+                                    );
+                                  },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "${provider.followersCount}",
+                                        style: Resources.styles.kTextStyle14B(
+                                            Resources.colors.greyColor),
+                                      ),
+                                      Text(
+                                        "Followers",
+                                        style: Resources.styles.kTextStyle14B(
+                                            Resources.colors.blackColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width:
+                                      MediaQuery.of(context).size.width * .05,
+                                ),
+                                GestureDetector(
+                                  onTap:(){
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => FollowingListScreen(userId: widget.userId),
+                                      ),
+                                    );
+                                  },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "${provider.followingCount}",
+                                        style: Resources.styles.kTextStyle14B(
+                                            Resources.colors.greyColor),
+                                      ),
+                                      Text(
+                                        "Following",
+                                        style: Resources.styles.kTextStyle14B(
+                                            Resources.colors.blackColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width:
+                                      MediaQuery.of(context).size.width * .05,
+                                ),
+                                GestureDetector(
+                                  onTap: () {
+                                    GoRouter.of(context).pushNamed(
+                                        RoutesName.editProfileScreen);
+                                  },
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    height: MediaQuery.of(context).size.height *
+                                        .04,
+                                    width:
+                                        MediaQuery.of(context).size.width * .25,
+                                    decoration: BoxDecoration(
+                                        color: Resources.colors.themeColor,
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
+                                    child: Text(
+                                      "Edit Profile",
+                                      style: Resources.styles.kTextStyle12B(
+                                          Resources.colors.whiteColor),
+                                    ),
+                                  ),
+                                )
+                              ],
+                            )),
+                        const SizedBox(height: 5),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8.0),
+                          child: Divider(
+                            color: Resources.colors.greyColor,
+                          ),
+                        ),
+                        SizedBox(
+                            height: MediaQuery.of(context).size.height * .004),
+                        _buildGallery(),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
     );
   }
 
   Widget _buildGallery() {
-    // Sample gallery items (images and videos)
-    List<MediaItem> galleryItems = [
-      MediaItem(
-          url:
-              'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTS6xn1hVT8NIz70qdzI-1bYTFecpqNOhNCkQ&s',
-          isVideo: false),
-      MediaItem(
-          url:
-              'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-          isVideo: true),
-      MediaItem(
-          url:
-              'https://wallpapers.com/images/hd/russian-girl-actress-ekaterina-kuznetsova-u2itufn94o8sfzvl.jpg',
-          isVideo: false),
-      MediaItem(
-          url:
-              'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-          isVideo: true),
-      MediaItem(
-          url:
-              'https://img.freepik.com/premium-photo/beautiful-russian-girl-city-park_333900-3225.jpg?w=360',
-          isVideo: false),
-    ];
-
+    if (addPostController.posts.isEmpty) {
+      return const Center(
+        child: Text(
+          "No posts available",
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         childAspectRatio: 1 / 1.4,
-        crossAxisSpacing: 0,
+        crossAxisSpacing: 4,
         mainAxisSpacing: 2,
       ),
-      itemCount: galleryItems.length,
+      itemCount: addPostController.posts.length,
       itemBuilder: (context, index) {
-        final item = galleryItems[index];
+        final PostModel item = addPostController.posts[index];
         final videoController = _videoControllers[index];
 
         return GestureDetector(
@@ -267,7 +419,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => FullScreenMediaPage(mediaItem: item),
+                builder: (context) => FullScreenMediaPage(postModel: item),
               ),
             );
           },
@@ -276,7 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
             ),
-            child: item.isVideo && videoController != null
+            child: item.mediaType == "video" && videoController != null
                 ? Stack(
                     alignment: Alignment.center,
                     children: [
@@ -314,7 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      item.url,
+                      item.mediaUrl,
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -326,9 +478,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class FullScreenMediaPage extends StatelessWidget {
-  final MediaItem mediaItem;
-
-  const FullScreenMediaPage({super.key, required this.mediaItem});
+  final PostModel postModel;
+  const FullScreenMediaPage({
+    super.key,
+    required this.postModel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -346,10 +500,10 @@ class FullScreenMediaPage extends StatelessWidget {
             child: Column(
               children: [
                 Expanded(
-                  child: mediaItem.isVideo
-                      ? VideoPlayerWidget(url: mediaItem.url)
+                  child: postModel.mediaType == "video"
+                      ? VideoPlayerWidget(url: postModel.mediaUrl)
                       : Image.network(
-                          mediaItem.url,
+                          postModel.mediaUrl,
                           fit: BoxFit.contain,
                           width: double.infinity,
                         ),

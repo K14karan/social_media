@@ -24,7 +24,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     const HomeScreen(),
     const SearchScreen(),
     const FeedScreen(),
-    const ProfileScreen(),
+    const ProfileScreen(userId: '',),
   ];
 
   void _onItemTapped(int index) {

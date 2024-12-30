@@ -15,6 +15,7 @@ import 'package:social_media/view/screens/search/user_search_profile.dart';
 
 class AppRoutes {
   static final GoRouter router = GoRouter(
+      // navigatorKey: navigatorKey,
       routes: [
         GoRoute(
             name: RoutesName.splash,
@@ -47,18 +48,27 @@ class AppRoutes {
             builder: (BuildContext context, GoRouterState state) {
               return const SearchScreen();
             }),
+        // GoRoute(
+        //     name: RoutesName.userSearchScreen,
+        //     path: "/user_search_profile",
+        //     builder: (BuildContext context, GoRouterState state) {
+        //       final user = state.extra as User;
+        //       return  UserProfilePage(user: user);
+        //     }),
         GoRoute(
             name: RoutesName.chatList,
             path: "/chat_list",
             builder: (BuildContext context, GoRouterState state) {
+              //return const ChatList();
               return const ChatList();
             }),
-        GoRoute(
-            name: RoutesName.chatScreen,
-            path: "/chat_screen",
-            builder: (BuildContext context, GoRouterState state) {
-              return const ChatScreen();
-            }),
+        // GoRoute(
+        //     name: RoutesName.chatScreen,
+        //     path: "/chat_screen",
+        //     builder: (BuildContext context, GoRouterState state) {
+        //      var chatId = state.extra as String ?? '';
+        //       return  ChatScreen( );
+        //     }),
         GoRoute(
             name: RoutesName.notificationScreen,
             path: "/notification_page",

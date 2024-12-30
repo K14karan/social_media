@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:social_media/provider/auth_provider.dart';
 import 'package:social_media/resources/resources.dart';
 import 'package:social_media/router/routes_name.dart';
 
@@ -14,9 +16,21 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  late AuthProvider authProvider;
+  loadData() {
+    authProvider = Provider.of<AuthProvider>(context, listen: false);
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    loadData();
+  }
 
   @override
   Widget build(BuildContext context) {
+    authProvider = Provider.of<AuthProvider>(context);
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -60,7 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       validator: (value) {
                         if (value!.isEmpty) {
                           return 'Enter an email address';
-                        } else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+                        } else if (!RegExp(
+                                r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
                             .hasMatch(value)) {
                           return 'Enter a valid email address';
                         }
@@ -102,10 +117,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           if (_formKey.currentState!.validate()) {
+                            try {
+                              final user = await authProvider.loginUser(
+                                _emailController.text.trim(),
+                                _passwordController.text.trim(),
+                              );
 
-                            GoRouter.of(context).pushNamed(RoutesName.navigationScreen);
+                              if (user != null) {
+                                // Successful login, navigate to the next screen
+                                GoRouter.of(context)
+                                    .pushNamed(RoutesName.navigationScreen);
+                              } else {
+                                // Login failed, show an error message
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Login failed. Please try again.')),
+                                );
+                              }
+                            } catch (e) {
+                              // Catch any exceptions and show an error message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('Error: ${e.toString()}')),
+                              );
+                            }
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -116,12 +154,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           shadowColor: Colors.black45,
                           elevation: 5,
                         ),
-                        child: Text(
-                          'Login',
-                          style: Resources.styles.kTextStyle16B(Resources.colors.themeColor),
-                        ),
+                        child: authProvider.isLoading
+                            ? CircularProgressIndicator(
+                                color: Resources.colors.themeColor)
+                            : Text(
+                                'Login',
+                                style: Resources.styles
+                                    .kTextStyle16B(Resources.colors.themeColor),
+                              ),
                       ),
                     ),
+
                     const SizedBox(height: 20),
 
                     // Or login with
@@ -141,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         Expanded(
-                          child:  Divider(
+                          child: Divider(
                             color: Colors.white70,
                             thickness: 1,
                           ),
@@ -169,15 +212,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         Text(
                           'Don\'t have an account?',
-                          style: Resources.styles.kTextStyle14(Resources.colors.whiteColor),
+                          style: Resources.styles
+                              .kTextStyle14(Resources.colors.whiteColor),
                         ),
                         TextButton(
                           onPressed: () {
-                            GoRouter.of(context).pushNamed(RoutesName.registerScreen);
+                            GoRouter.of(context)
+                                .pushNamed(RoutesName.registerScreen);
                           },
                           child: Text(
                             'Register',
-                            style: Resources.styles.kTextStyle16B(Resources.colors.whiteColor),
+                            style: Resources.styles
+                                .kTextStyle16B(Resources.colors.whiteColor),
                           ),
                         ),
                       ],
